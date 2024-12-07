@@ -1,79 +1,123 @@
 <!DOCTYPE html>
 <html>
-  <head>
-    <title>Marker Based AR with AR.js and Three.js</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/110/three.js"></script>
-    <script src="https://raw.githack.com/AR-js-org/AR.js/3.1.0/three.js/build/ar.js"></script>
-    <script src="./CSVManager.js" type="module"></script>
-  </head>
-  <body>
-    <script type="module">
-      import { loadCSVData, normalizeData, calculateMinMax } from './CSVManager.js';
+<head>
+  <title>Improved Marker Based AR</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/110/three.js"></script>
+  <script src="https://raw.githack.com/AR-js-org/AR.js/3.1.0/three.js/build/ar.js"></script>
+  <script src="./CSVManager.js" type="module"></script>
+</head>
+<body>
+  <script type="module">
+    import { loadCSVData, normalizeData, calculateMinMax } from './CSVManager.js';
 
-      const renderer = new THREE.WebGLRenderer({
-        antialias: true,
-        alpha: true
-      });
-      renderer.setClearColor(new THREE.Color(), 0);
-      renderer.setSize(640, 480);
-      renderer.domElement.style.position = 'absolute';
-      renderer.domElement.style.top = '0px';
-      renderer.domElement.style.left = '0px';
-      document.body.appendChild(renderer.domElement);
+    // レンダラー設定
+    const renderer = new THREE.WebGLRenderer({
+      antialias: true,
+      alpha: true
+    });
+    renderer.setPixelRatio(window.devicePixelRatio); // 高解像度対応
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.shadowMap.enabled = true; // シャドウを有効化
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap; // ソフトシャドウ
+    document.body.appendChild(renderer.domElement);
 
-      const scene = new THREE.Scene();
-      scene.visible = false;
-      const camera = new THREE.Camera();
-      scene.add(camera);
+    // シーンとカメラの作成
+    const scene = new THREE.Scene();
+    const camera = new THREE.Camera();
+    scene.add(camera);
 
-      const arToolkitSource = new THREEx.ArToolkitSource({
-        sourceType: 'webcam'
-      });
+    // 環境光と指向性ライト
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.6); // 環境光
+    scene.add(ambientLight);
 
-      arToolkitSource.init(() => {
-        setTimeout(() => {
-          onResize();
-        }, 2000);
-      });
+    const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+    directionalLight.position.set(1, 2, 1);
+    directionalLight.castShadow = true; // シャドウ有効化
+    scene.add(directionalLight);
 
-      addEventListener('resize', () => {
+    // AR.jsのセットアップ
+    const arToolkitSource = new THREEx.ArToolkitSource({
+      sourceType: 'webcam',
+      resolution: { width: 1280, height: 720 } // 高解像度設定
+    });
+
+    arToolkitSource.init(() => {
+      setTimeout(() => {
         onResize();
-      });
+      }, 2000);
+    });
 
-      function onResize() {
-        arToolkitSource.onResizeElement();
-        arToolkitSource.copyElementSizeTo(renderer.domElement);
-        if (arToolkitContext.arController !== null) {
-          arToolkitSource.copyElementSizeTo(arToolkitContext.arController.canvas);
-        }
+    addEventListener('resize', () => onResize());
+
+    function onResize() {
+      arToolkitSource.onResizeElement();
+      arToolkitSource.copyElementSizeTo(renderer.domElement);
+      if (arToolkitContext.arController !== null) {
+        arToolkitSource.copyElementSizeTo(arToolkitContext.arController.canvas);
       }
+    }
 
-      const arToolkitContext = new THREEx.ArToolkitContext({
-        cameraParametersUrl: 'data/camera_para.dat',
-        detectionMode: 'mono'
-      });
+    const arToolkitContext = new THREEx.ArToolkitContext({
+      cameraParametersUrl: 'data/camera_para.dat',
+      detectionMode: 'mono'
+    });
 
-      arToolkitContext.init(() => {
-        camera.projectionMatrix.copy(arToolkitContext.getProjectionMatrix());
-      });
+    arToolkitContext.init(() => {
+      camera.projectionMatrix.copy(arToolkitContext.getProjectionMatrix());
+    });
 
-      const arMarkerControls = new THREEx.ArMarkerControls(arToolkitContext, camera, {
-        type: 'pattern',
-        patternUrl: 'data/patt.hiro',
-        changeMatrixMode: 'cameraTransformMatrix'
-      });
+    const arMarkerControls = new THREEx.ArMarkerControls(arToolkitContext, camera, {
+      type: 'pattern',
+      patternUrl: 'data/patt.hiro',
+      changeMatrixMode: 'cameraTransformMatrix'
+    });
 
-      async function addAxesWithLabels() {
+    async function addAxesWithLabels() {
         const data = await loadCSVData('data/points.csv');
         const { min, max } = calculateMinMax(data);
 
         const axisMaterial = new THREE.LineBasicMaterial({ color: 0x888888, transparent: true, opacity: 0.5 });
 
-        // 各軸のライン
+        // XZ平面を白く描画
+        const vertices = new Float32Array([
+            -0.7, 0, -0.7, // 頂点1
+            -0.7, 0,  0.7, // 頂点2
+            0.7, 0,  0.7, // 頂点3
+            0.7, 0, -0.7  // 頂点4
+        ]);
+
+        // 頂点インデックスで三角形を定義
+        const indices = [
+            0, 1, 2, // 三角形1
+            0, 2, 3  // 三角形2
+        ];
+
+        // バッファジオメトリの作成
+        const geometry = new THREE.BufferGeometry();
+        geometry.setAttribute('position', new THREE.BufferAttribute(vertices, 3)); // 頂点を設定
+        geometry.setIndex(indices); // 頂点の順序を設定
+        geometry.computeVertexNormals(); // 法線を計算
+
+        // マテリアルを作成
+        const material = new THREE.MeshBasicMaterial({
+            color: 0xffffff,
+            side: THREE.DoubleSide,
+            transparent: true,
+            opacity: 0.8
+        });
+
+        // メッシュを作成
+        const square = new THREE.Mesh(geometry, material);
+
+        // シーンに追加
+        scene.add(square);
+
+
+        // 各軸のラインとラベル
         const axes = [
-          { start: [-0.5, 0, -0.5], end: [0.5, 0, -0.5], label: 'X', minLabel: min.x, maxLabel: max.x, offset: [0.1, 0, 0] }, // X軸
-          { start: [-0.5, 0, -0.5], end: [-0.5, 1, -0.5], label: 'Y', minLabel: min.y, maxLabel: max.y, offset: [0, 0.1, 0] }, // Y軸
-          { start: [-0.5, 0, -0.5], end: [-0.5, 0, 0.5], label: 'Z', minLabel: min.z, maxLabel: max.z, offset: [0, 0, 0.1] }  // Z軸
+          { start: [-0.5, 0, -0.5], end: [0.5, 0, -0.5], label: 'X', minLabel: min.x, maxLabel: max.x, offset: [0.15, 0, 0] }, // X軸
+          { start: [-0.5, 0, -0.5], end: [-0.5, 1, -0.5], label: 'Y', minLabel: min.y, maxLabel: max.y, offset: [0, 0.15, 0] }, // Y軸
+          { start: [-0.5, 0, -0.5], end: [-0.5, 0, 0.5], label: 'Z', minLabel: min.z, maxLabel: max.z, offset: [0, 0, 0.15] }  // Z軸
         ];
 
         const loader = new THREE.FontLoader();
@@ -111,32 +155,31 @@
         });
       }
 
-      async function createScatterPlot() {
-        const data = await loadCSVData('data/points.csv');
-        const normalizedData = normalizeData(data);
+    async function createScatterPlot() {
+      const data = await loadCSVData('data/points.csv');
+      const normalizedData = normalizeData(data);
 
-        normalizedData.forEach(point => {
-          const geometry = new THREE.SphereGeometry(0.02, 16, 16);
-          const material = new THREE.MeshBasicMaterial({ color: 0x0000ff });
-          const sphere = new THREE.Mesh(geometry, material);
+      normalizedData.forEach(point => {
+        const geometry = new THREE.SphereGeometry(0.02, 32, 32);
+        const material = new THREE.MeshStandardMaterial({ color: 0x0000ff, transparent: true, opacity: 0.7 });
+        const sphere = new THREE.Mesh(geometry, material);
 
-          sphere.position.set(point.x - 0.5, point.y, point.z - 0.5);
-          scene.add(sphere);
-        });
-      }
-
-      await addAxesWithLabels(); // 軸とラベルを追加
-      createScatterPlot(); // 散布図を作成
-
-      const clock = new THREE.Clock();
-      requestAnimationFrame(function animate() {
-        requestAnimationFrame(animate);
-        if (arToolkitSource.ready) {
-          arToolkitContext.update(arToolkitSource.domElement);
-          scene.visible = camera.visible;
-        }
-        renderer.render(scene, camera);
+        sphere.position.set(point.x - 0.5, point.y, point.z - 0.5);
+        scene.add(sphere);
       });
-    </script>
-  </body>
+    }
+
+    await addAxesWithLabels();
+    createScatterPlot();
+
+    requestAnimationFrame(function animate() {
+      requestAnimationFrame(animate);
+      if (arToolkitSource.ready) {
+        arToolkitContext.update(arToolkitSource.domElement);
+        scene.visible = camera.visible;
+      }
+      renderer.render(scene, camera);
+    });
+  </script>
+</body>
 </html>
