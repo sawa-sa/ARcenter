@@ -12,13 +12,11 @@
 
     // レンダラー設定
     const renderer = new THREE.WebGLRenderer({
-      antialias: true,
-      alpha: true
+      antialias: true, // アンチエイリアスを有効化
+      alpha: true      // 背景を透過
     });
     renderer.setPixelRatio(window.devicePixelRatio); // 高解像度対応
     renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.shadowMap.enabled = true; // シャドウを有効化
-    renderer.shadowMap.type = THREE.PCFSoftShadowMap; // ソフトシャドウ
     document.body.appendChild(renderer.domElement);
 
     // シーンとカメラの作成
@@ -26,14 +24,9 @@
     const camera = new THREE.Camera();
     scene.add(camera);
 
-    // 環境光と指向性ライト
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.6); // 環境光
+    // 環境光 (影を使わないシンプルなライティング)
+    const ambientLight = new THREE.AmbientLight(0xffffff, 1.0); // 環境光
     scene.add(ambientLight);
-
-    const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
-    directionalLight.position.set(1, 2, 1);
-    directionalLight.castShadow = true; // シャドウ有効化
-    scene.add(directionalLight);
 
     // AR.jsのセットアップ
     const arToolkitSource = new THREEx.ArToolkitSource({
@@ -115,9 +108,9 @@
 
         // 各軸のラインとラベル
         const axes = [
-          { start: [-0.5, 0, -0.5], end: [0.5, 0, -0.5], label: 'X', minLabel: min.x, maxLabel: max.x, offset: [0.15, 0, 0] }, // X軸
-          { start: [-0.5, 0, -0.5], end: [-0.5, 1, -0.5], label: 'Y', minLabel: min.y, maxLabel: max.y, offset: [0, 0.15, 0] }, // Y軸
-          { start: [-0.5, 0, -0.5], end: [-0.5, 0, 0.5], label: 'Z', minLabel: min.z, maxLabel: max.z, offset: [0, 0, 0.15] }  // Z軸
+          { start: [-0.5, 0, -0.5], end: [0.5, 0, -0.5], label: 'X', minLabel: min.x, maxLabel: max.x, offset: [0.1, 0, 0] }, // X軸
+          { start: [-0.5, 0, -0.5], end: [-0.5, 1, -0.5], label: 'Y', minLabel: min.y, maxLabel: max.y, offset: [0, 0.1, 0] }, // Y軸
+          { start: [-0.5, 0, -0.5], end: [-0.5, 0, 0.5], label: 'Z', minLabel: min.z, maxLabel: max.z, offset: [0, 0, 0.1] }  // Z軸
         ];
 
         const loader = new THREE.FontLoader();
@@ -160,8 +153,8 @@
       const normalizedData = normalizeData(data);
 
       normalizedData.forEach(point => {
-        const geometry = new THREE.SphereGeometry(0.02, 32, 32);
-        const material = new THREE.MeshStandardMaterial({ color: 0x0000ff, transparent: true, opacity: 0.7 });
+        const geometry = new THREE.SphereGeometry(0.02, 32, 32); // 滑らかさを調整
+        const material = new THREE.MeshBasicMaterial({ color: 0x0000ff, transparent: true, opacity: 0.7 }); // シンプルなマテリアル
         const sphere = new THREE.Mesh(geometry, material);
 
         sphere.position.set(point.x - 0.5, point.y, point.z - 0.5);
