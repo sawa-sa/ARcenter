@@ -12,11 +12,13 @@
 
     // レンダラー設定
     const renderer = new THREE.WebGLRenderer({
-      antialias: true, // アンチエイリアスを有効化
-      alpha: true      // 背景を透過
+      antialias: true,
+      alpha: true
     });
-    renderer.setPixelRatio(window.devicePixelRatio); // 高解像度対応
+    renderer.setPixelRatio(window.devicePixelRatio);
     renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     document.body.appendChild(renderer.domElement);
 
     // シーンとカメラの作成
@@ -24,14 +26,19 @@
     const camera = new THREE.Camera();
     scene.add(camera);
 
-    // 環境光 (影を使わないシンプルなライティング)
-    const ambientLight = new THREE.AmbientLight(0xffffff, 1.0); // 環境光
+    // 環境光と指向性ライト
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
     scene.add(ambientLight);
+
+    const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+    directionalLight.position.set(1, 2, 1);
+    directionalLight.castShadow = true;
+    scene.add(directionalLight);
 
     // AR.jsのセットアップ
     const arToolkitSource = new THREEx.ArToolkitSource({
       sourceType: 'webcam',
-      resolution: { width: 1280, height: 720 } // 高解像度設定
+      resolution: { width: 1280, height: 720 }
     });
 
     arToolkitSource.init(() => {
@@ -66,95 +73,51 @@
     });
 
     async function addAxesWithLabels() {
-        const data = await loadCSVData('data/points.csv');
-        const { min, max } = calculateMinMax(data);
+      const data = await loadCSVData('data/points.csv');
+      const { min, max } = calculateMinMax(data);
 
-        const axisMaterial = new THREE.LineBasicMaterial({ color: 0x888888, transparent: true, opacity: 0.5 });
+      const axisMaterial = new THREE.LineBasicMaterial({ color: 0x888888, transparent: true, opacity: 0.5 });
+      const loader = new THREE.FontLoader();
 
-        // XZ平面を白く描画
-        const vertices = new Float32Array([
-            -0.7, 0, -0.7, // 頂点1
-            -0.7, 0,  0.7, // 頂点2
-            0.7, 0,  0.7, // 頂点3
-            0.7, 0, -0.7  // 頂点4
-        ]);
+      loader.load('https://threejs.org/examples/fonts/helvetiker_regular.typeface.json', font => {
+        const textMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000 });
 
-        // 頂点インデックスで三角形を定義
-        const indices = [
-            0, 1, 2, // 三角形1
-            0, 2, 3  // 三角形2
-        ];
-
-        // バッファジオメトリの作成
-        const geometry = new THREE.BufferGeometry();
-        geometry.setAttribute('position', new THREE.BufferAttribute(vertices, 3)); // 頂点を設定
-        geometry.setIndex(indices); // 頂点の順序を設定
-        geometry.computeVertexNormals(); // 法線を計算
-
-        // マテリアルを作成
-        const material = new THREE.MeshBasicMaterial({
-            color: 0xffffff,
-            side: THREE.DoubleSide,
-            transparent: true,
-            opacity: 0.8
-        });
-
-        // メッシュを作成
-        const square = new THREE.Mesh(geometry, material);
-
-        // シーンに追加
-        scene.add(square);
-
-
-        // 各軸のラインとラベル
         const axes = [
-          { start: [-0.5, 0, -0.5], end: [0.5, 0, -0.5], label: 'X', minLabel: min.x, maxLabel: max.x, offset: [0.1, 0, 0] }, // X軸
-          { start: [-0.5, 0, -0.5], end: [-0.5, 1, -0.5], label: 'Y', minLabel: min.y, maxLabel: max.y, offset: [0, 0.1, 0] }, // Y軸
-          { start: [-0.5, 0, -0.5], end: [-0.5, 0, 0.5], label: 'Z', minLabel: min.z, maxLabel: max.z, offset: [0, 0, 0.1] }  // Z軸
+          { start: [-0.5, 0, -0.5], end: [0.5, 0, -0.5], label: 'X', minLabel: min.x, maxLabel: max.x, offset: [0.1, 0, 0] },
+          { start: [-0.5, 0, -0.5], end: [-0.5, 1, -0.5], label: 'Y', minLabel: min.y, maxLabel: max.y, offset: [0, 0.1, 0] },
+          { start: [-0.5, 0, -0.5], end: [-0.5, 0, 0.5], label: 'Z', minLabel: min.z, maxLabel: max.z, offset: [0, 0, 0.1] }
         ];
 
-        const loader = new THREE.FontLoader();
-        loader.load('https://threejs.org/examples/fonts/helvetiker_regular.typeface.json', font => {
-          axes.forEach(({ start, end, label, minLabel, maxLabel, offset }) => {
-            // 軸ライン
-            const geometry = new THREE.BufferGeometry().setFromPoints([
-              new THREE.Vector3(...start),
-              new THREE.Vector3(...end)
-            ]);
-            const axis = new THREE.Line(geometry, axisMaterial);
-            scene.add(axis);
+        axes.forEach(({ start, end, label, minLabel, maxLabel, offset }) => {
+          const geometry = new THREE.BufferGeometry().setFromPoints([
+            new THREE.Vector3(...start),
+            new THREE.Vector3(...end)
+          ]);
+          const axis = new THREE.Line(geometry, axisMaterial);
+          scene.add(axis);
 
-            // ラベル用のマテリアル
-            const textMaterial = new THREE.MeshBasicMaterial({ color: 0xFF0000, transparent: true, opacity: 0.8 });
-
-            // 軸ラベル (X, Y, Z)
-            const labelGeometry = new THREE.TextGeometry(label, { font, size: 0.05, height: 0.01 });
+          const addLabel = (text, position) => {
+            const labelGeometry = new THREE.TextGeometry(text, { font, size: 0.05, height: 0.01 });
             const labelMesh = new THREE.Mesh(labelGeometry, textMaterial);
-            labelMesh.position.set(end[0] + offset[0], end[1] + offset[1], end[2] + offset[2]);
+            labelMesh.position.set(...position);
             scene.add(labelMesh);
+          };
 
-            // 最小値ラベル
-            const minLabelGeometry = new THREE.TextGeometry(minLabel.toFixed(2), { font, size: 0.05, height: 0.01 });
-            const minLabelMesh = new THREE.Mesh(minLabelGeometry, textMaterial);
-            minLabelMesh.position.set(start[0] + offset[0], start[1] + offset[1], start[2] + offset[2]);
-            scene.add(minLabelMesh);
-
-            // 最大値ラベル
-            const maxLabelGeometry = new THREE.TextGeometry(maxLabel.toFixed(2), { font, size: 0.05, height: 0.01 });
-            const maxLabelMesh = new THREE.Mesh(maxLabelGeometry, textMaterial);
-            maxLabelMesh.position.set(end[0] + offset[0] * 2, end[1] + offset[1] * 2, end[2] + offset[2] * 2);
-            scene.add(maxLabelMesh);
-          });
+          addLabel(label, [end[0] + offset[0], end[1] + offset[1], end[2] + offset[2]]);
+          addLabel(minLabel.toFixed(2), [start[0] + offset[0], start[1] + offset[1], start[2] + offset[2]]);
+          addLabel(maxLabel.toFixed(2), [end[0] + offset[0] * 2, end[1] + offset[1] * 2, end[2] + offset[2] * 2]);
         });
-      }
+      });
+    }
 
     async function createScatterPlot() {
       const data = await loadCSVData('data/points.csv');
       const normalizedData = normalizeData(data);
 
       normalizedData.forEach(point => {
-        const geometry = new THREE.SphereGeometry(0.02, 32, 32); // 滑らかさを調整
-        const material = new THREE.MeshBasicMaterial({ color: 0x0000ff, transparent: true, opacity: 0.7 }); // シンプルなマテリアル
+        const size = point.size !== undefined ? 0.02 + (point.size - 0.5) * 0.02 : 0.02;
+        const geometry = new THREE.SphereGeometry(size, 32, 32);
+        const material = new THREE.MeshStandardMaterial({ color: point.color, transparent: true, opacity: 0.5 });
         const sphere = new THREE.Mesh(geometry, material);
 
         sphere.position.set(point.x - 0.5, point.y, point.z - 0.5);
