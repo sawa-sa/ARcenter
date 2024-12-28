@@ -31,16 +31,21 @@ async function loadCSVData(url) {
 // データを0〜1の範囲に正規化する関数
 function normalizeData(data) {
   const minMax = calculateMinMax(data);
-
-  // 正規化とサイズ倍率調整
+  // 正規化
   return data.map(point => ({
-    x: (point.x - minMax.min.x) / (minMax.max.x - minMax.min.x),
-    y: (point.y - minMax.min.y) / (minMax.max.y - minMax.min.y),
-    z: (point.z - minMax.min.z) / (minMax.max.z - minMax.min.z),
-    size: point.size !== undefined
-      ? (point.size - minMax.min.size) / (minMax.max.size - minMax.min.size)
-      : undefined, // sizeが存在しない場合はundefined
-    color: point.color // カラーコードはそのまま維持
+    x: (minMax.max.x - minMax.min.x === 0) 
+      ? 0.5 
+      : (point.x - minMax.min.x) / (minMax.max.x - minMax.min.x),
+    y: (minMax.max.y - minMax.min.y === 0) 
+      ? 0.5 
+      : (point.y - minMax.min.y) / (minMax.max.y - minMax.min.y),
+    z: (minMax.max.z - minMax.min.z === 0) 
+      ? 0.5 
+      : (point.z - minMax.min.z) / (minMax.max.z - minMax.min.z),
+    size: (point.size !== undefined )
+      ? point.size
+      : undefined,
+    color: point.color
   }));
 }
 

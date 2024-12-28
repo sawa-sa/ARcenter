@@ -115,8 +115,8 @@
       const normalizedData = normalizeData(data);
 
       normalizedData.forEach(point => {
-        const size = point.size !== undefined ? 0.02 + (point.size - 0.5) * 0.02 : 0.02;
-        const geometry = new THREE.SphereGeometry(size, 32, 32);
+        const size = point.size !== undefined ? 0.02 * point.size : 0.02;
+        const geometry = new THREE.SphereGeometry(size, 64, 64);
         const material = new THREE.MeshStandardMaterial({ color: point.color, transparent: true, opacity: 0.5 });
         const sphere = new THREE.Mesh(geometry, material);
 
